@@ -1,0 +1,82 @@
+# golangci-lint v2. Quy tắc phụ thuộc giữa các lớp được kiểm tra bằng depguard.
+version: "2"
+
+linters:
+  enable:
+    - depguard
+    - errorlint
+    - bodyclose
+    - noctx
+    - misspell
+  exclusions:
+    paths:
+      - internal/order/adapter/postgres/db # code sqlc sinh ra
+  settings:
+    depguard:
+      rules:
+        domain:
+          files: ["**/internal/*/domain/**"]
+          deny:
+            - pkg: "github.com/my-org/base-go/internal/order/app"
+              desc: "domain không được import app"
+            - pkg: "github.com/my-org/base-go/internal/order/adapter"
+              desc: "domain không được import adapter"
+            - pkg: "github.com/my-org/base-go/internal/order/transport"
+              desc: "domain không được import transport"
+            - pkg: "github.com/my-org/base-go/internal/customer/app"
+              desc: "domain không được import app"
+            - pkg: "github.com/my-org/base-go/internal/customer/adapter"
+              desc: "domain không được import adapter"
+            - pkg: "github.com/my-org/base-go/internal/customer/transport"
+              desc: "domain không được import transport"
+            - pkg: "github.com/my-org/base-go/internal/platform"
+              desc: "domain không biết hạ tầng"
+            - pkg: "github.com/jackc/pgx"
+              desc: "domain không biết DB"
+            - pkg: "net/http"
+              desc: "domain không biết HTTP"
+        app:
+          files: ["**/internal/*/app/**"]
+          deny:
+            - pkg: "github.com/my-org/base-go/internal/order/adapter"
+              desc: "app chỉ biết interface, không biết adapter"
+            - pkg: "github.com/my-org/base-go/internal/order/transport"
+              desc: "app không biết transport"
+            - pkg: "github.com/my-org/base-go/internal/customer/adapter"
+              desc: "app chỉ biết interface, không biết adapter"
+            - pkg: "github.com/my-org/base-go/internal/customer/transport"
+              desc: "app không biết transport"
+            - pkg: "github.com/jackc/pgx"
+              desc: "app không biết DB"
+            - pkg: "net/http"
+              desc: "app không biết HTTP"
+        transport:
+          files: ["**/internal/*/transport/**"]
+          deny:
+            - pkg: "github.com/my-org/base-go/internal/order/adapter"
+              desc: "transport và adapter không phụ thuộc lẫn nhau"
+            - pkg: "github.com/my-org/base-go/internal/customer/adapter"
+              desc: "transport và adapter không phụ thuộc lẫn nhau"
+        adapter:
+          files: ["**/internal/*/adapter/**"]
+          deny:
+            - pkg: "github.com/my-org/base-go/internal/order/transport"
+              desc: "transport và adapter không phụ thuộc lẫn nhau"
+            - pkg: "github.com/my-org/base-go/internal/customer/transport"
+              desc: "transport và adapter không phụ thuộc lẫn nhau"
+        platform:
+          files: ["**/internal/platform/**"]
+          deny:
+            - pkg: "github.com/my-org/base-go/internal/order"
+              desc: "platform dùng chung, không import feature"
+            - pkg: "github.com/my-org/base-go/internal/customer"
+              desc: "platform dùng chung, không import feature"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/my-org/base-go

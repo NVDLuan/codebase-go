@@ -1,0 +1,11 @@
+# Chỉ chứa cấu hình KHÔNG nhạy cảm
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-app-config
+data:
+  APP_ENV: base
+  LOG_LEVEL: info
+  KAFKA_TOPIC: orders
+  # KAFKA_BROKERS: b-1.msk...:9094,b-2.msk...:9094   # bỏ trống → app ghi event ra log
+  # DATABASE_URL, STRIPE_API_KEY là secret → Secrets Manager `my-app/<env>` (ExternalSecret)

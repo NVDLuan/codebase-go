@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: my-app-prod
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/my-org/base-go.git
+    targetRevision: main
+    path: deploy/overlays/prod
+  destination:
+    # Mỗi môi trường 1 cluster riêng; đăng ký cluster vào Argo CD với tên này
+    name: eks-prod
+    namespace: my-app
+  syncPolicy:
+    # Prod: sync thủ công sau khi PR promote được duyệt
+    syncOptions:
+      - CreateNamespace=false

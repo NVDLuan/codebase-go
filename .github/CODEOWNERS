@@ -1,0 +1,10 @@
+# Mặc định
+*                       @my-org/dev-team
+
+# Hạ tầng & pipeline
+/infra/                 @my-org/platform
+/.github/               @my-org/devops
+
+# Production cần DevOps duyệt
+/deploy/overlays/prod/  @my-org/devops
+/deploy/argocd/         @my-org/devops

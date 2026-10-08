@@ -1,0 +1,30 @@
+# Cần bật network policy trên VPC CNI (enableNetworkPolicy=true trong infra/modules/eks)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: my-app
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: my-app
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # ALB target-type ip đi thẳng vào pod từ dải VPC
+    - from:
+        - ipBlock: { cidr: 10.0.0.0/8 }
+      ports:
+        - port: 8080
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - { port: 53, protocol: UDP }
+        - { port: 53, protocol: TCP }
+    - ports:
+        - { port: 443, protocol: TCP }   # AWS API, Stripe, dịch vụ ngoài
+        - { port: 5432, protocol: TCP }  # PostgreSQL (RDS)
+        - { port: 9092, protocol: TCP }  # Kafka plaintext
+        - { port: 9094, protocol: TCP }  # Kafka TLS (MSK)
+        - { port: 9096, protocol: TCP }  # Kafka SASL/SCRAM (MSK)

@@ -1,0 +1,45 @@
+name: infra-plan
+
+on:
+  pull_request:
+    paths: ["infra/**", ".github/workflows/infra-*.yml"]
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [dev, staging, prod]
+    defaults:
+      run:
+        working-directory: infra/envs/${{ matrix.env }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: 1.10.5 }
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TF_PLAN_ROLE_ARN }}
+          aws-region: ap-southeast-1
+      - run: terraform fmt -check -recursive ../../
+      - run: terraform init -input=false
+      - run: terraform validate
+      - id: plan
+        run: terraform plan -no-color -input=false -lock=false | tee plan.txt
+      - name: Comment plan lên PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('infra/envs/${{ matrix.env }}/plan.txt', 'utf8').slice(-60000);
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `### terraform plan — \`${{ matrix.env }}\`\n<details><summary>Xem plan</summary>\n\n\`\`\`\n${plan}\n\`\`\`\n</details>`
+            });

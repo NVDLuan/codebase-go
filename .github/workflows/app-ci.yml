@@ -1,0 +1,81 @@
+name: app-ci
+
+on:
+  pull_request:
+    paths: ["app/**", ".github/workflows/app-ci.yml"]
+  push:
+    branches: [main]
+    paths: ["app/**", ".github/workflows/app-ci.yml"]
+
+permissions:
+  contents: read
+  id-token: write   # OIDC để assume IAM role
+
+env:
+  AWS_REGION: ap-southeast-1
+  ECR_REPOSITORY: my-app
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-go@v5
+        with: { go-version-file: app/go.mod, cache-dependency-path: app/go.sum }
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+      - run: go vet ./...
+      - name: golangci-lint (có depguard kiểm tra kiến trúc)
+        uses: golangci/golangci-lint-action@v8
+        with: { version: v2.14, working-directory: app, args: "--build-tags=integration,e2e" }
+      - name: Code sqlc sinh ra khớp queries.sql
+        uses: sqlc-dev/setup-sqlc@v4
+        with: { sqlc-version: "1.27.0" }
+      - run: sqlc diff
+      - name: Unit test
+        run: go test -race ./...
+      - name: Integration test (testcontainers, runner có sẵn Docker)
+        run: go test -tags=integration ./internal/...
+      - name: E2E test
+        run: go test -tags=e2e ./test/e2e/...
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
+        run: echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - run: docker build -t ${{ env.ECR_REPOSITORY }}:${{ steps.meta.outputs.tag }} app
+      - name: Scan image (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.ECR_REPOSITORY }}:${{ steps.meta.outputs.tag }}
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+      - name: Configure AWS credentials
+        if: github.event_name == 'push'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Login ECR
+        if: github.event_name == 'push'
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Push image
+        if: github.event_name == 'push'
+        run: |
+          IMAGE=${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.meta.outputs.tag }}
+          docker tag ${{ env.ECR_REPOSITORY }}:${{ steps.meta.outputs.tag }} "$IMAGE"
+          docker push "$IMAGE"

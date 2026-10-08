@@ -1,0 +1,22 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+override.tf
+*_override.tf
+
+# Secrets & local
+.env
+*.pem
+*.key
+kubeconfig*
+
+# Build
+target/
+build/
+dist/
+node_modules/
+bin/
+coverage.out

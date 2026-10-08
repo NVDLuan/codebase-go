@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+patches:
+  - path: patch-replicas.yaml
+  - path: configmap-env.yaml
+  - target: { kind: Ingress, name: my-app }
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: my-app.dev.example.com
+      - op: add
+        path: /metadata/annotations/alb.ingress.kubernetes.io~1certificate-arn
+        value: arn:aws:acm:ap-southeast-1:<account_id>:certificate/<dev-cert-id>
+  - target: { kind: ExternalSecret, name: my-app }
+    patch: |-
+      - op: replace
+        path: /spec/dataFrom/0/extract/key
+        value: my-app/dev
+images:
+  - name: my-app
+    newName: <account_id>.dkr.ecr.ap-southeast-1.amazonaws.com/my-app
+    newTag: "0000000"   # CI/CD cập nhật dòng này

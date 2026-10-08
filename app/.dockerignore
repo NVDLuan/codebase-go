@@ -1,0 +1,6 @@
+**/*_test.go
+test/
+.env
+*.md
+Makefile
+.golangci.yml
